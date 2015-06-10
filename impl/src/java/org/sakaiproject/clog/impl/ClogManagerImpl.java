@@ -123,6 +123,11 @@ public class ClogManagerImpl implements ClogManager {
         return clogSecurityManager.filter(persistenceManager.getPosts(query));
 	}
 
+	public int getPostsTotal(QueryBean query) throws Exception {
+
+        return clogSecurityManager.filter(persistenceManager.getPosts(query)).size();
+	}
+
 	public boolean savePost(Post post) {
 		try {
 			return persistenceManager.savePost(post);

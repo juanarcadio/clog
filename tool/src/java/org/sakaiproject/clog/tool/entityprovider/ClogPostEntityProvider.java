@@ -228,6 +228,7 @@ public class ClogPostEntityProvider extends AbstractEntityProvider implements Co
 
 		QueryBean query = new QueryBean();
         query.setVisibilities(Arrays.asList(new String[] { Visibilities.SITE, Visibilities.TUTOR, Visibilities.PRIVATE }));
+        query.setSearchAutoSaved(true);
 
 		Restriction creatorRes = search.getRestrictionByProperty("creatorId");
 		if (creatorRes != null) {
@@ -240,17 +241,14 @@ public class ClogPostEntityProvider extends AbstractEntityProvider implements Co
 		    query.setVisibilities(Arrays.asList(new String[] { Visibilities.GROUP }));
         }
 
-		Restriction locRes = search.getRestrictionByProperty(CollectionResolvable.SEARCH_LOCATION_REFERENCE);
 		Restriction visibilities = search.getRestrictionByProperty("visibilities");
-
-		Restriction autosaveRes = search.getRestrictionByProperty("autosaved");
-
 		if (visibilities != null) {
 			String visibilitiesValue = visibilities.getStringValue();
 			String[] values = visibilitiesValue.split(",");
 			query.setVisibilities(Arrays.asList(values));
 		}
 
+		Restriction locRes = search.getRestrictionByProperty(CollectionResolvable.SEARCH_LOCATION_REFERENCE);
 		if (locRes != null) {
 			String location = locRes.getStringValue();
 			String context = new EntityReference(location).getId();
@@ -270,10 +268,6 @@ public class ClogPostEntityProvider extends AbstractEntityProvider implements Co
 				query.setSiteId("");
 			}
 		}
-
-		if (autosaveRes != null) {
-			query.setSearchAutoSaved(true);
-        }
 
 		try {
 			return clogManager.getPosts(query);
@@ -411,6 +405,38 @@ public class ClogPostEntityProvider extends AbstractEntityProvider implements Co
 			return "SUCCESS";
 		else
 			throw new EntityException("Failed to delete the autosaved copy.", postId);
+	}
+    @EntityCustomAction(action = "total", viewKey = EntityView.VIEW_SHOW)
+	public String handleTotal(EntityReference ref, Map<String, Object> params) {
+
+		String userId = developerHelperService.getCurrentUserId();
+		if (userId == null) {
+			throw new EntityException("You must be logged in", "", HttpServletResponse.SC_UNAUTHORIZED);
+		}
+
+        String siteId = (String) params.get("siteId");
+
+        if (siteId == null) {
+			throw new EntityException("You need to supply a site id","", HttpServletResponse.SC_BAD_REQUEST);
+        }
+
+		QueryBean query = new QueryBean();
+        query.setVisibilities(Arrays.asList(new String[] { Visibilities.SITE, Visibilities.TUTOR, Visibilities.PRIVATE }));
+
+        query.setSiteId(siteId);
+
+        if ("!gateway".equals(siteId)) {
+            query.setVisibilities(Arrays.asList(new String[] { Visibilities.PUBLIC }));
+            query.setSiteId("");
+        } else if (context.startsWith("~") && query.getVisibilities().equals(Arrays.asList(Visibilities.PUBLIC))) {
+            // We are on a MyWorkspace and PUBLIC has been requested. PUBLIC posts always retain the site ID of the
+            // site they were originally created in so a site id query for the MyWorkspace will fail. We need to
+            // flatten the site id.
+            query.setSiteId("");
+        }
+
+		int total = clogManager.getPostsTotal(query);
+        return total;
 	}
 
 	/**

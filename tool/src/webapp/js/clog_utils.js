@@ -466,6 +466,89 @@ clog.utils = {
 
         this.decoratePost(post);
         this.renderTemplate('post', post, output);
+    },
+    renderPageOfPosts = function () {
+
+        if (clog.nextPage == 0) {
+		    $.get('/direct/clog-post/total.txt?siteId=' + clog.siteId, function (data) {
+                clog.postsTotal = data;
+            });
+        }
+
+		$.ajax( {
+	       	url : "/direct/clog-post.json?siteId=" + clog.siteId + "&page=" + clog.nextPage,
+	       	dataType: "json",
+			cache: false,
+		   	success: function (data) {
+
+                var templateData = {
+                        posts: data['clog-post_collection'],
+                        onGateway: clog.onGateway,
+                        siteId: clog.siteId,
+                        showBody: clog.settings.showBody
+                    };
+
+                clog.utils.addFormattedDatesToPosts(templateData.posts);
+                $(window).off('scroll.clog.rendered').on('scroll.clog.rendered', clog.utils.checkScroll);
+                var t = Handlebars.templates['all_posts'];
+                $('#clog-posts').append(t(templateData));
+
+                $(document).ready(function () {
+
+                    templateData.posts.forEach(function (p) {
+                        clog.utils.renderPost(p, 'post_' + p.id);
+                    });
+
+                    $(document).ready(function () {
+
+                        clog.utils.attachProfilePopup();
+                        clog.fitFrame();
+                    });
+
+                    if (!clog.settings.showBody) {
+                        $('.clog_body').hide();
+                    }
+                });
+                $(window).trigger('scroll.clog.rendered');
+                clog.page += 1;
+			},
+			error : function (xmlHttpRequest, textStatus, errorThrown) {
+				alert("Failed to get posts. Reason: " + errorThrown);
+			}
+	   	});
+    },
+    checkScroll: function () {
+        
+        // Check if there is no scroll rendered and there are more pages
+
+        // Check if body height is lower than window height (scrollbar missed, maybe you need to get more pages automatically)
+        if ($("body").height() <= $(window).height()) {
+            setTimeout(function () {
+                var renderedPosts = $(".clog-post").size();
+                // Without filter conditions get more pages if there are more members than rendered and rendered > 0
+                // If you have an active filter maybe you could display less members than total
+                // So get more pages only if rendered match a page size (10 is pagesize)
+                if (clog.totalPosts > renderedPosts && renderedPosts > 0 && renderedPosts % 10 === 0) {
+                    $("body").data("scroll-clog", true);
+                    $(window).trigger('scroll.clog');
+                }
+            }, 100);
+        }
+    },
+    getScrollFunction: function () {
+
+        var scroller = function () {
+
+            var wintop = $(window).scrollTop(), docheight = $(document).height(), winheight = $(window).height();
+
+            if  ((wintop/(docheight-winheight)) > 0.95 || $("body").data("scroll-clog") === true) {
+                $("body").data("scroll-clog", false);
+                $(window).off('scroll.clog');
+                clog.utils.renderPageOfPosts();
+            }
+        };
+
+        return scroller;
     }
 };
 

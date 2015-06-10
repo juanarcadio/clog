@@ -8,9 +8,9 @@ clog.homeState = null;
 clog.onMyWorkspace = false;
 clog.onGateway = false;
 clog.titleChanged = false;
-
 clog.autosave_id = null;
-
+clog.nextPage = 0;
+clog.postsTotal = 0;
 clog.LOCAL_STORAGE_KEY = 'clog';
 
 clog.states = {
@@ -51,34 +51,14 @@ clog.switchState = function (state,arg) {
 		clog.switchState(clog.homeState, arg);
 	} else if ('viewAllPosts' === state) {
 
+        clog.nextPage = 0;
+
 	    $('#clog_toolbar > li > span').removeClass('current');
 	    $('#clog_home_link > span').addClass('current');
 
         $('#clog_toolbar_dropdown').val(clog.i18n.home_label);
 
-		clog.utils.setCurrentPosts();
-	 			
-		clog.utils.renderTemplate('all_posts', { posts: clog.currentPosts,
-                                                    onGateway: clog.onGateway,
-                                                    siteId: clog.siteId,
-                                                    showBody: clog.settings.showBody }, 'clog_content');
-
-	 	$(document).ready(function () {
-
-		    clog.currentPosts.forEach(function (p) {
-			    clog.utils.renderPost(p, 'post_' + p.id);
-            });
-
-	 	    $(document).ready(function () {
-
-		        clog.utils.attachProfilePopup();
-                clog.fitFrame();
-            });
-
-            if (!clog.settings.showBody) {
-                $('.clog_body').hide();
-            }
-        });
+        clog.utils.renderPageOfPosts();
 	} else if (clog.states.GROUPS === state) {
 	    $('#clog_toolbar > li > span').removeClass('current');
 	    $('#clog_groups_link > span').addClass('current');

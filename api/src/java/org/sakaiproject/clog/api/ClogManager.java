@@ -29,6 +29,8 @@ public interface ClogManager extends EntityProducer {
 
 	public List<Post> getPosts(QueryBean query) throws Exception;
 
+	public int getPostsTotal(QueryBean query) throws Exception;
+
 	public boolean savePost(Post post);
 
 	public boolean deletePost(String postId);

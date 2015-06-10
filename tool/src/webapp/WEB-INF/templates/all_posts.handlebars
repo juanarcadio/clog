@@ -13,17 +13,9 @@
 	{{/unless}}
     <div id="postsWrapper">
     	<br />
-  	 	<div id="posts">
-	  	    <table class="tableHeader">
-				<tbody>
-					{{#each posts}}
-					<tr>
-						<td>
-							<div id="post_{{id}}"></div>
-						</td>
-					</tr>
-					{{/each}}
-				</tbody>
-			</table>
+  	 	<div id="clog-posts">
+        {{#each posts}}
+            <div id="post_{{id}}" class="clog-post"></div>
+        {{/each}}
 		</div>
 	</div>
