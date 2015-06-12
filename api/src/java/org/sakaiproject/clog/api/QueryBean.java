@@ -26,7 +26,8 @@ import lombok.Setter;
 @Getter @Setter
 public class QueryBean {
 
-	private List<String> visibilities = new ArrayList<String>();
+	private List<String> visibilities
+         = Arrays.asList(new String [] {Visibilities.SITE,Visibilities.TUTOR,Visibilities.PRIVATE});
 	private String creator = "";
 	private String siteId = "";
 	private String title = "";
@@ -34,6 +35,7 @@ public class QueryBean {
     private String group = "";
 	private String caller = "";
 	private boolean searchAutoSaved = false;
+	private int page = 0;
 
 	public boolean hasConditions() {
 
@@ -63,5 +65,9 @@ public class QueryBean {
 
     public boolean queryByGroup() {
 		return !group.trim().equals("");
+    }
+
+    public boolean byPublic() {
+        return visibilities.contains(Visibilities.PUBLIC);
     }
 }

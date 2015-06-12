@@ -467,35 +467,30 @@ clog.utils = {
         this.decoratePost(post);
         this.renderTemplate('post', post, output);
     },
-    renderPageOfPosts = function () {
+    renderPageOfPosts: function () {
 
-        if (clog.nextPage == 0) {
-		    $.get('/direct/clog-post/total.txt?siteId=' + clog.siteId, function (data) {
+        if (clog.page == 0) {
+		    $.get('/direct/clog-post/total?siteId=' + clog.siteId, function (data) {
                 clog.postsTotal = data;
             });
         }
 
 		$.ajax( {
-	       	url : "/direct/clog-post.json?siteId=" + clog.siteId + "&page=" + clog.nextPage,
+	       	url : "/direct/clog-post/posts.json?siteId=" + clog.siteId + "&page=" + clog.page,
 	       	dataType: "json",
 			cache: false,
 		   	success: function (data) {
 
-                var templateData = {
-                        posts: data['clog-post_collection'],
-                        onGateway: clog.onGateway,
-                        siteId: clog.siteId,
-                        showBody: clog.settings.showBody
-                    };
+                var posts = data['clog-post_collection'];
 
-                clog.utils.addFormattedDatesToPosts(templateData.posts);
-                $(window).off('scroll.clog.rendered').on('scroll.clog.rendered', clog.utils.checkScroll);
-                var t = Handlebars.templates['all_posts'];
-                $('#clog-posts').append(t(templateData));
+                clog.utils.addFormattedDatesToPosts(posts);
+                $(window).off('scroll.clog').on('scroll.clog', clog.utils.getScrollFunction());
+                var t = Handlebars.templates['posts'];
+                $('#clog-posts').append(t({ posts: posts }));
 
                 $(document).ready(function () {
 
-                    templateData.posts.forEach(function (p) {
+                    posts.forEach(function (p) {
                         clog.utils.renderPost(p, 'post_' + p.id);
                     });
 
@@ -509,7 +504,7 @@ clog.utils = {
                         $('.clog_body').hide();
                     }
                 });
-                $(window).trigger('scroll.clog.rendered');
+                //$(window).trigger('scroll.clog');
                 clog.page += 1;
 			},
 			error : function (xmlHttpRequest, textStatus, errorThrown) {
@@ -518,17 +513,17 @@ clog.utils = {
 	   	});
     },
     checkScroll: function () {
+
+        console.log("checkScroll");
         
         // Check if there is no scroll rendered and there are more pages
 
         // Check if body height is lower than window height (scrollbar missed, maybe you need to get more pages automatically)
         if ($("body").height() <= $(window).height()) {
+            console.log('setting timeout');
             setTimeout(function () {
                 var renderedPosts = $(".clog-post").size();
-                // Without filter conditions get more pages if there are more members than rendered and rendered > 0
-                // If you have an active filter maybe you could display less members than total
-                // So get more pages only if rendered match a page size (10 is pagesize)
-                if (clog.totalPosts > renderedPosts && renderedPosts > 0 && renderedPosts % 10 === 0) {
+                if (clog.postsTotal > renderedPosts && renderedPosts > 0 && renderedPosts % 10 === 0) {
                     $("body").data("scroll-clog", true);
                     $(window).trigger('scroll.clog');
                 }
@@ -538,10 +533,15 @@ clog.utils = {
     getScrollFunction: function () {
 
         var scroller = function () {
+            
+            console.log("scrollfunction");
 
             var wintop = $(window).scrollTop(), docheight = $(document).height(), winheight = $(window).height();
 
+            console.log("wintop: " + wintop);
+
             if  ((wintop/(docheight-winheight)) > 0.95 || $("body").data("scroll-clog") === true) {
+                console.log("blah");
                 $("body").data("scroll-clog", false);
                 $(window).off('scroll.clog');
                 clog.utils.renderPageOfPosts();

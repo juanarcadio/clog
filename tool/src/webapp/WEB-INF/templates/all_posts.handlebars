@@ -1,21 +1,15 @@
 	{{#unless onGateway}}
 	<h2>{{translate 'worksite_posts_label'}}&nbsp;<a target="_blank" href="/direct/clog-rss/site/{{siteId}}.xml" title="{{translate 'site_rss_tooltip'}}"><img src="/library/image/silk/feed.png"/></a></h2>
 	{{/unless}}
-	{{#unless posts.length}}
-	<div id="noPostsLabel"><span>{{translate 'noPosts'}}</span></div>
-	{{else}}
-	<div style="clear: left; margin-top: 10px;" id="viewOptions">
+	<div id="clog-nopostslabel"><span>{{translate 'noPosts'}}</span></div>
+	<div id="clog-bodytoggle" style="clear: left; margin-top: 10px;">
    		<input type="checkbox"
                  {{#unless showBody}} checked {{/unless}}
                  onclick="clog.toggleFullContent(this);"/>
 		<span>{{translate 'show_title_only_label'}}</span>
    	</div>
-	{{/unless}}
     <div id="postsWrapper">
     	<br />
   	 	<div id="clog-posts">
-        {{#each posts}}
-            <div id="post_{{id}}" class="clog-post"></div>
-        {{/each}}
 		</div>
 	</div>

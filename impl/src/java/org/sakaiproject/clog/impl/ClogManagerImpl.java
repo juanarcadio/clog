@@ -118,9 +118,21 @@ public class ClogManagerImpl implements ClogManager {
 
 	public List<Post> getPosts(QueryBean query) throws Exception {
 
-		// Get all the posts for the supplied site and filter them through the
-		// security manager
-        return clogSecurityManager.filter(persistenceManager.getPosts(query));
+        Cache cache = sakaiProxy.getCache("org.sakaiproject.clog.sortedPostCache");
+        if (query.byPublic()) {
+            if (!cache.containsKey("public")) {
+                cache.put("public", persistenceManager.getPosts(query));
+            }
+            return (List<Post>) cache.get("public");
+        } else if (query.queryBySiteId()) {
+            String siteId = query.getSiteId();
+            if (!cache.containsKey(siteId)) {
+                cache.put(siteId, persistenceManager.getPosts(query));
+            }
+            return clogSecurityManager.filter((List<Post>) cache.get(siteId));
+        } else {
+            return clogSecurityManager.filter(persistenceManager.getPosts(query));
+        }
 	}
 
 	public int getPostsTotal(QueryBean query) throws Exception {

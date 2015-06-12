@@ -25,7 +25,7 @@ import org.sakaiproject.entitybroker.entityprovider.annotations.EntityCustomActi
 import org.sakaiproject.entitybroker.entityprovider.annotations.EntityURLRedirect;
 import org.sakaiproject.entitybroker.entityprovider.capabilities.ActionsExecutable;
 import org.sakaiproject.entitybroker.entityprovider.capabilities.AutoRegisterEntityProvider;
-import org.sakaiproject.entitybroker.entityprovider.capabilities.CollectionResolvable;
+//import org.sakaiproject.entitybroker.entityprovider.capabilities.CollectionResolvable;
 import org.sakaiproject.entitybroker.entityprovider.capabilities.Createable;
 import org.sakaiproject.entitybroker.entityprovider.capabilities.Deleteable;
 import org.sakaiproject.entitybroker.entityprovider.capabilities.Describeable;
@@ -42,7 +42,7 @@ import org.sakaiproject.entitybroker.util.AbstractEntityProvider;
 import org.sakaiproject.entitybroker.util.TemplateParseUtil;
 import org.sakaiproject.util.ResourceLoader;
 
-public class ClogPostEntityProvider extends AbstractEntityProvider implements CoreEntityProvider, AutoRegisterEntityProvider, Inputable, Outputable, /*Createable,*/ Describeable, CollectionResolvable, ActionsExecutable, Redirectable, Statisticable {
+public class ClogPostEntityProvider extends AbstractEntityProvider implements CoreEntityProvider, AutoRegisterEntityProvider, Inputable, Outputable, /*Createable,*/ Describeable, /*CollectionResolvable,*/ ActionsExecutable, Redirectable, Statisticable {
 
 	private static final String[] EVENT_KEYS = new String[] { ClogManager.CLOG_POST_CREATED, ClogManager.CLOG_POST_DELETED, ClogManager.CLOG_POST_RECYCLED, ClogManager.CLOG_POST_RESTORED, ClogManager.CLOG_COMMENT_CREATED, ClogManager.CLOG_COMMENT_DELETED };
 
@@ -224,41 +224,38 @@ public class ClogPostEntityProvider extends AbstractEntityProvider implements Co
         }
     }
 
-	public List<Post> getEntities(EntityReference ref, Search search) {
+	@EntityCustomAction(action = "posts", viewKey = EntityView.VIEW_LIST)
+	public PostsData handlePosts(EntityReference ref, Map<String, Object> params) {
 
 		QueryBean query = new QueryBean();
-        query.setVisibilities(Arrays.asList(new String[] { Visibilities.SITE, Visibilities.TUTOR, Visibilities.PRIVATE }));
         query.setSearchAutoSaved(true);
 
-		Restriction creatorRes = search.getRestrictionByProperty("creatorId");
-		if (creatorRes != null) {
-			query.setCreator(creatorRes.getStringValue());
+		String creatorId = (String) params.get("creatorId");
+		if (creatorId != null) {
+			query.setCreator(creatorId);
         }
 
-		Restriction groupRes = search.getRestrictionByProperty("groupId");
-        if (groupRes != null) {
-            query.setGroup(groupRes.getStringValue());
+		String groupId = (String) params.get("groupId");
+        if (groupId != null) {
+            query.setGroup(groupId);
 		    query.setVisibilities(Arrays.asList(new String[] { Visibilities.GROUP }));
         }
 
-		Restriction visibilities = search.getRestrictionByProperty("visibilities");
+		String visibilities = (String) params.get("visibilities");
 		if (visibilities != null) {
-			String visibilitiesValue = visibilities.getStringValue();
-			String[] values = visibilitiesValue.split(",");
+			String[] values = visibilities.split(",");
 			query.setVisibilities(Arrays.asList(values));
 		}
 
-		Restriction locRes = search.getRestrictionByProperty(CollectionResolvable.SEARCH_LOCATION_REFERENCE);
-		if (locRes != null) {
-			String location = locRes.getStringValue();
-			String context = new EntityReference(location).getId();
+		String siteId= (String) params.get("siteId");
+		if (siteId != null) {
 
-			query.setSiteId(context);
+			query.setSiteId(siteId);
 
-			if ("!gateway".equals(context)) {
+			if ("!gateway".equals(siteId)) {
 				query.setVisibilities(Arrays.asList(new String[] { Visibilities.PUBLIC }));
 				query.setSiteId("");
-			} else if (context.startsWith("~") && query.getVisibilities().equals(Arrays.asList(Visibilities.PUBLIC))) {
+			} else if (siteId.startsWith("~") && query.getVisibilities().equals(Arrays.asList(Visibilities.PUBLIC))) {
 				// We are on a MyWorkspace and PUBLIC has been requested. PUBLIC
 				// posts always
 				// retain the site ID of the site they were originally created
@@ -269,13 +266,53 @@ public class ClogPostEntityProvider extends AbstractEntityProvider implements Co
 			}
 		}
 
+        int page = 0;
+		String pageString = (String) params.get("page");
+		if (pageString != null) {
+            try {
+			    page = Integer.parseInt(pageString);
+                query.setPage(page);
+            } catch (NumberFormatException nfe) {
+                LOG.error("Invalid page number " + pageString + " supplied. The first page will be returned ...");
+                throw new EntityException("Invalid page value. Needs to be an integer.", ""
+                                                                    , HttpServletResponse.SC_BAD_REQUEST);
+            }
+        }
+
+        System.out.println("Page: " + page);
+
 		try {
-			return clogManager.getPosts(query);
+			List<Post> posts = clogManager.getPosts(query);
+            int pageSize = 10;
+            int start  = page * pageSize;
+            int postsTotal = posts.size();
+
+            if (start >= postsTotal) {
+                return "{\"status\": \"END\"}";
+            } else {
+                int end = start + pageSize;
+
+                if (log.isDebugEnabled()) {
+                    log.debug("end: " + end);
+                }
+
+                if (end >= postsTotal) {
+                    end = postsTotal;
+                }
+
+                List<Post> subList = posts.subList(start, end);
+
+                PostsData data = new PostsData();
+                data.setPosts(subList);
+                data.setPostsTotal(postsTotal);
+
+                return data;
+            }
 		} catch (Exception e) {
 			LOG.error("Caught exception whilst getting posts. Returning an empty list ...", e);
 		}
 
-        return new ArrayList<Post>();
+        return new PostsData();
 	}
 
 	public void deleteEntity(EntityReference ref, Map<String, Object> params) {
@@ -406,7 +443,8 @@ public class ClogPostEntityProvider extends AbstractEntityProvider implements Co
 		else
 			throw new EntityException("Failed to delete the autosaved copy.", postId);
 	}
-    @EntityCustomAction(action = "total", viewKey = EntityView.VIEW_SHOW)
+
+    @EntityCustomAction(action = "total", viewKey = EntityView.VIEW_LIST)
 	public String handleTotal(EntityReference ref, Map<String, Object> params) {
 
 		String userId = developerHelperService.getCurrentUserId();
@@ -421,22 +459,25 @@ public class ClogPostEntityProvider extends AbstractEntityProvider implements Co
         }
 
 		QueryBean query = new QueryBean();
-        query.setVisibilities(Arrays.asList(new String[] { Visibilities.SITE, Visibilities.TUTOR, Visibilities.PRIVATE }));
 
         query.setSiteId(siteId);
 
         if ("!gateway".equals(siteId)) {
             query.setVisibilities(Arrays.asList(new String[] { Visibilities.PUBLIC }));
             query.setSiteId("");
-        } else if (context.startsWith("~") && query.getVisibilities().equals(Arrays.asList(Visibilities.PUBLIC))) {
+        } else if (siteId.startsWith("~") && query.getVisibilities().equals(Arrays.asList(Visibilities.PUBLIC))) {
             // We are on a MyWorkspace and PUBLIC has been requested. PUBLIC posts always retain the site ID of the
             // site they were originally created in so a site id query for the MyWorkspace will fail. We need to
             // flatten the site id.
             query.setSiteId("");
         }
 
-		int total = clogManager.getPostsTotal(query);
-        return total;
+        try {
+		    int total = clogManager.getPostsTotal(query);
+            return Integer.toString(total);
+        } catch (Exception e) {
+			throw new EntityException("Failed to get posts total","", HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
+        }
 	}
 
 	/**

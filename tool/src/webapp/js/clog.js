@@ -9,7 +9,7 @@ clog.onMyWorkspace = false;
 clog.onGateway = false;
 clog.titleChanged = false;
 clog.autosave_id = null;
-clog.nextPage = 0;
+clog.page = 0;
 clog.postsTotal = 0;
 clog.LOCAL_STORAGE_KEY = 'clog';
 
@@ -51,12 +51,21 @@ clog.switchState = function (state,arg) {
 		clog.switchState(clog.homeState, arg);
 	} else if ('viewAllPosts' === state) {
 
-        clog.nextPage = 0;
+        // renderPageOfPosts uses this. Set it to the start page
+        clog.page = 0;
 
 	    $('#clog_toolbar > li > span').removeClass('current');
 	    $('#clog_home_link > span').addClass('current');
 
         $('#clog_toolbar_dropdown').val(clog.i18n.home_label);
+
+        var templateData = {
+                onGateway: clog.onGateway,
+                siteId: clog.siteId,
+                showBody: clog.settings.showBody
+            };
+
+        clog.utils.renderTemplate('all_posts', templateData, 'clog_content');
 
         clog.utils.renderPageOfPosts();
 	} else if (clog.states.GROUPS === state) {
