@@ -467,24 +467,46 @@ clog.utils = {
         this.decoratePost(post);
         this.renderTemplate('post', post, output);
     },
-    renderPageOfPosts: function () {
+    renderPageOfPosts: function (args) {
 
-        if (clog.page == 0) {
-		    $.get('/direct/clog-post/total?siteId=' + clog.siteId, function (data) {
-                clog.postsTotal = data;
-            });
+        var loadImage = $('#clog-loading-image')
+        loadImage.show();
+
+        var url = "/direct/clog-post/posts.json?siteId=" + clog.siteId + "&page=" + clog.page;
+
+        if (args && args.userId) {
+            url += '&creatorId=' + args.userId;
+        }
+
+        if (args && args.groupId) {
+            url += '&groupId=' + args.groupId;
         }
 
 		$.ajax( {
-	       	url : "/direct/clog-post/posts.json?siteId=" + clog.siteId + "&page=" + clog.page,
+	       	url : url,
 	       	dataType: "json",
 			cache: false,
 		   	success: function (data) {
 
-                var posts = data['clog-post_collection'];
+                if (data.status === 'END') {
+                    $(window).off('scroll.clog');
+                    loadImage.hide();
+                } else {
+                    $(window).off('scroll.clog').on('scroll.clog', clog.utils.getScrollFunction(args));
+                }
+
+                clog.postsTotal = data.postsTotal;
+                var posts = data.posts;
+
+                clog.currentPosts.push.apply(posts);
+
+                if (clog.page == 0) {
+                    $('#clog-posts-total').html(data.postsTotal);
+                }
+
+                clog.postsRendered += posts.length;
 
                 clog.utils.addFormattedDatesToPosts(posts);
-                $(window).off('scroll.clog').on('scroll.clog', clog.utils.getScrollFunction());
                 var t = Handlebars.templates['posts'];
                 $('#clog-posts').append(t({ posts: posts }));
 
@@ -503,8 +525,9 @@ clog.utils = {
                     if (!clog.settings.showBody) {
                         $('.clog_body').hide();
                     }
+
+                    loadImage.hide();
                 });
-                //$(window).trigger('scroll.clog');
                 clog.page += 1;
 			},
 			error : function (xmlHttpRequest, textStatus, errorThrown) {
@@ -514,37 +537,29 @@ clog.utils = {
     },
     checkScroll: function () {
 
-        console.log("checkScroll");
-        
         // Check if there is no scroll rendered and there are more pages
 
         // Check if body height is lower than window height (scrollbar missed, maybe you need to get more pages automatically)
         if ($("body").height() <= $(window).height()) {
-            console.log('setting timeout');
             setTimeout(function () {
-                var renderedPosts = $(".clog-post").size();
-                if (clog.postsTotal > renderedPosts && renderedPosts > 0 && renderedPosts % 10 === 0) {
+
+                if (clog.postsTotal > clog.postsRendered && clog.postsRendered > 0 && clog.postsRendered % 10 === 0) {
                     $("body").data("scroll-clog", true);
                     $(window).trigger('scroll.clog');
                 }
             }, 100);
         }
     },
-    getScrollFunction: function () {
+    getScrollFunction: function (args) {
 
         var scroller = function () {
             
-            console.log("scrollfunction");
-
             var wintop = $(window).scrollTop(), docheight = $(document).height(), winheight = $(window).height();
 
-            console.log("wintop: " + wintop);
-
             if  ((wintop/(docheight-winheight)) > 0.95 || $("body").data("scroll-clog") === true) {
-                console.log("blah");
                 $("body").data("scroll-clog", false);
                 $(window).off('scroll.clog');
-                clog.utils.renderPageOfPosts();
+                clog.utils.renderPageOfPosts(args);
             }
         };
 

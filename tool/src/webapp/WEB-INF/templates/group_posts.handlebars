@@ -1,6 +1,6 @@
     <h2>{{translate 'group_posts_title_prefix'}} '{{groupTitle}}'</h2>
 	{{#unless posts.length}}
-	<div id="noPostsLabel"><span>{{translate 'noPosts'}}</span></div>
+	<div id="clog-posts-total-wrapper"><span id="clog-posts-total"></span><span>{{translate 'posts_in_total'}}</span></div>
 	{{else}}
 	<div style="clear: left; margin-top: 10px;" id="viewOptions">
    		<input type="checkbox"
@@ -9,19 +9,11 @@
 		<span>{{translate 'show_title_only_label'}}</span>
    	</div>
 	{{/unless}}
-    <div id="postsWrapper">
+    <div id="clog-posts-wrapper">
     	<br />
-  	 	<div id="posts">
-	  	    <table class="tableHeader">
-				<tbody>
-					{{#each posts}}
-					<tr>
-						<td>
-							<div id="post_{{id}}"></div>
-						</td>
-					</tr>
-					{{/each}}
-				</tbody>
-			</table>
+  	 	<div id="clog-posts">
 		</div>
 	</div>
+    <div id="clog-loading-image">
+        <img src="/clog-tool/images/ajax-loader.gif" />
+    </div>

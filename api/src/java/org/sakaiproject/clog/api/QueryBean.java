@@ -17,8 +17,11 @@
 
 package org.sakaiproject.clog.api;
 
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.sakaiproject.clog.api.datamodel.Visibilities;
 
 import lombok.Getter;
 import lombok.Setter;

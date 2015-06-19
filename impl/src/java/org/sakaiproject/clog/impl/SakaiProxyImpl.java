@@ -57,7 +57,9 @@ import org.sakaiproject.event.api.NotificationEdit;
 import org.sakaiproject.event.api.NotificationService;
 import org.sakaiproject.exception.IdUnusedException;
 import org.sakaiproject.exception.PermissionException;
+import org.sakaiproject.memory.api.Cache;
 import org.sakaiproject.memory.api.MemoryService;
+import org.sakaiproject.memory.api.SimpleConfiguration;
 import org.sakaiproject.search.api.InvalidSearchQueryException;
 import org.sakaiproject.search.api.SearchList;
 import org.sakaiproject.search.api.SearchResult;
@@ -466,6 +468,10 @@ public class SakaiProxyImpl implements SakaiProxy {
 		return sqlService;
 	}
 
+	public void setMemoryService(MemoryService memoryService) {
+		this.memoryService = memoryService;
+	}
+
 	public void registerFunction(String function) {
 		List functions = functionManager.getRegisteredFunctions("clog.");
 
@@ -845,7 +851,7 @@ public class SakaiProxyImpl implements SakaiProxy {
 		return serverConfigurationService.getString("wysiwyg.editor");
 	}
 
-    private Cache getCache(String cache) {
+    public Cache getCache(String cache) {
 
         try {
             Cache c = memoryService.getCache(cache);
@@ -854,7 +860,7 @@ public class SakaiProxyImpl implements SakaiProxy {
             }
             return c;
         } catch (Exception e) {
-            log.error("Exception whilst retrieving '" + cache + "' cache. Returning null ...", e);
+            logger.error("Exception whilst retrieving '" + cache + "' cache. Returning null ...", e);
             return null;
         }
     }

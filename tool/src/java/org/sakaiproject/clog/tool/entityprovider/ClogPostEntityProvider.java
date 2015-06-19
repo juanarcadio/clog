@@ -14,6 +14,7 @@ import lombok.Setter;
 
 import org.apache.log4j.Logger;
 import org.sakaiproject.clog.api.datamodel.Post;
+import org.sakaiproject.clog.api.datamodel.PostsData;
 import org.sakaiproject.clog.api.datamodel.Visibilities;
 import org.sakaiproject.clog.api.ClogManager;
 import org.sakaiproject.clog.api.QueryBean;
@@ -279,8 +280,6 @@ public class ClogPostEntityProvider extends AbstractEntityProvider implements Co
             }
         }
 
-        System.out.println("Page: " + page);
-
 		try {
 			List<Post> posts = clogManager.getPosts(query);
             int pageSize = 10;
@@ -288,24 +287,25 @@ public class ClogPostEntityProvider extends AbstractEntityProvider implements Co
             int postsTotal = posts.size();
 
             if (start >= postsTotal) {
-                return "{\"status\": \"END\"}";
+                PostsData data = new PostsData();
+                data.status = "END";
+                return data;
             } else {
                 int end = start + pageSize;
 
-                if (log.isDebugEnabled()) {
-                    log.debug("end: " + end);
+                if (LOG.isDebugEnabled()) {
+                    LOG.debug("end: " + end);
                 }
+
+                PostsData data = new PostsData();
+                data.postsTotal = postsTotal;
 
                 if (end >= postsTotal) {
                     end = postsTotal;
+                    data.status = "END";
                 }
 
-                List<Post> subList = posts.subList(start, end);
-
-                PostsData data = new PostsData();
-                data.setPosts(subList);
-                data.setPostsTotal(postsTotal);
-
+                data.posts = posts.subList(start, end);
                 return data;
             }
 		} catch (Exception e) {
@@ -442,42 +442,6 @@ public class ClogPostEntityProvider extends AbstractEntityProvider implements Co
 			return "SUCCESS";
 		else
 			throw new EntityException("Failed to delete the autosaved copy.", postId);
-	}
-
-    @EntityCustomAction(action = "total", viewKey = EntityView.VIEW_LIST)
-	public String handleTotal(EntityReference ref, Map<String, Object> params) {
-
-		String userId = developerHelperService.getCurrentUserId();
-		if (userId == null) {
-			throw new EntityException("You must be logged in", "", HttpServletResponse.SC_UNAUTHORIZED);
-		}
-
-        String siteId = (String) params.get("siteId");
-
-        if (siteId == null) {
-			throw new EntityException("You need to supply a site id","", HttpServletResponse.SC_BAD_REQUEST);
-        }
-
-		QueryBean query = new QueryBean();
-
-        query.setSiteId(siteId);
-
-        if ("!gateway".equals(siteId)) {
-            query.setVisibilities(Arrays.asList(new String[] { Visibilities.PUBLIC }));
-            query.setSiteId("");
-        } else if (siteId.startsWith("~") && query.getVisibilities().equals(Arrays.asList(Visibilities.PUBLIC))) {
-            // We are on a MyWorkspace and PUBLIC has been requested. PUBLIC posts always retain the site ID of the
-            // site they were originally created in so a site id query for the MyWorkspace will fail. We need to
-            // flatten the site id.
-            query.setSiteId("");
-        }
-
-        try {
-		    int total = clogManager.getPostsTotal(query);
-            return Integer.toString(total);
-        } catch (Exception e) {
-			throw new EntityException("Failed to get posts total","", HttpServletResponse.SC_INTERNAL_SERVER_ERROR);
-        }
 	}
 
 	/**

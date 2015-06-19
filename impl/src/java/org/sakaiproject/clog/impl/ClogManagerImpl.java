@@ -2,6 +2,7 @@ package org.sakaiproject.clog.impl;
 
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -25,6 +26,7 @@ import org.sakaiproject.entity.api.Entity;
 import org.sakaiproject.entity.api.HttpAccess;
 import org.sakaiproject.entity.api.Reference;
 import org.sakaiproject.entity.api.ResourceProperties;
+import org.sakaiproject.memory.api.Cache;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.Node;
@@ -118,31 +120,61 @@ public class ClogManagerImpl implements ClogManager {
 
 	public List<Post> getPosts(QueryBean query) throws Exception {
 
-        Cache cache = sakaiProxy.getCache("org.sakaiproject.clog.sortedPostCache");
+        Cache cache = sakaiProxy.getCache(CACHE);
         if (query.byPublic()) {
-            if (!cache.containsKey("public")) {
-                cache.put("public", persistenceManager.getPosts(query));
+            if (!cache.containsKey(Visibilities.PUBLIC)) {
+                cache.put(Visibilities.PUBLIC, persistenceManager.getPosts(query));
             }
-            return (List<Post>) cache.get("public");
+            return (List<Post>) cache.get(Visibilities.PUBLIC);
         } else if (query.queryBySiteId()) {
-            String siteId = query.getSiteId();
-            if (!cache.containsKey(siteId)) {
-                cache.put(siteId, persistenceManager.getPosts(query));
+            if (query.getVisibilities().contains(Visibilities.RECYCLED)) {
+                return clogSecurityManager.filter(persistenceManager.getPosts(query));
+            } else {
+                String siteId = query.getSiteId();
+
+                if (!cache.containsKey(siteId)) {
+                    cache.put(siteId, new HashMap<String, List<Post>>());
+                }
+
+                Map<String, List<Post>> siteMap = (Map<String, List<Post>>) cache.get(siteId);
+
+                String key = ALL;
+
+                if (query.queryByCreator()) {
+                    key = query.getCreator();
+                } else if (query.queryByGroup()) {
+                    key = query.getGroup();
+                }
+
+                if (logger.isDebugEnabled()) {
+                    logger.debug("KEY: " + key);
+                }
+
+                if (!siteMap.containsKey(key)) {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Cache miss on '" + key + "'. It will be added.");
+                    }
+                    siteMap.put(key, persistenceManager.getPosts(query));
+                } else {
+                    if (logger.isDebugEnabled()) {
+                        logger.debug("Cache hit on '" + key + "'");
+                    }
+                }
+                return clogSecurityManager.filter((List<Post>) siteMap.get(key));
             }
-            return clogSecurityManager.filter((List<Post>) cache.get(siteId));
         } else {
             return clogSecurityManager.filter(persistenceManager.getPosts(query));
         }
 	}
 
-	public int getPostsTotal(QueryBean query) throws Exception {
-
-        return clogSecurityManager.filter(persistenceManager.getPosts(query)).size();
-	}
-
 	public boolean savePost(Post post) {
 		try {
-			return persistenceManager.savePost(post);
+			if (persistenceManager.savePost(post)) {
+                // Invalidate all caches for this site
+                Cache cache = sakaiProxy.getCache(CACHE);
+                cache.remove(post.getSiteId());
+                return true;
+            }
 		} catch (Exception e) {
 			logger.error("Caught exception whilst creating post", e);
 		}
@@ -191,6 +223,9 @@ public class ClogManagerImpl implements ClogManager {
 			if (clogSecurityManager.canCurrentUserDeletePost(post)) {
 				if (persistenceManager.recyclePost(post)) {
 					post.setVisibility(Visibilities.RECYCLED);
+                    // Invalidate all caches for this site
+                    Cache cache = sakaiProxy.getCache(CACHE);
+                    cache.remove(post.getSiteId());
 					return true;
 				}
 			}
@@ -433,7 +468,14 @@ public class ClogManagerImpl implements ClogManager {
 
 		try {
 			Post post = persistenceManager.getPost(postId);
-			return persistenceManager.restorePost(post);
+			if (persistenceManager.restorePost(post)) {
+                // Invalidate all caches for this site
+                Cache cache = sakaiProxy.getCache(CACHE);
+                cache.remove(post.getSiteId());
+                return true;
+            } else {
+                return false;
+            }
 		} catch (Exception e) {
 			logger.error("Caught an exception whilst restoring post '" + postId + "'");
 		}

@@ -114,22 +114,14 @@ public class PersistenceManager {
 		try {
 			connection = sakaiProxy.borrowConnection();
 			statement = connection.createStatement();
-			String sql = sqlGenerator.getSelectPost(OID);
-			rs = statement.executeQuery(sql);
+			rs = statement.executeQuery(sqlGenerator.getSelectPost(OID));
 			boolean exists = rs.next();
 			return exists;
 		} finally {
-			if (rs != null) {
-				try {
-					rs.close();
-				} catch (SQLException e) {
-				}
-			}
 			if (statement != null) {
 				try {
 					statement.close();
-				} catch (SQLException e) {
-				}
+				} catch (SQLException e) {}
 			}
 
 			sakaiProxy.returnConnection(connection);
@@ -438,12 +430,23 @@ public class PersistenceManager {
 
 		try {
 			connection = sakaiProxy.borrowConnection();
-            statement = sqlGenerator.getRestoreStatementForPost(post, connection);
-            statement.executeUpdate();
-            return true;
+			boolean oldAutoCommit = connection.getAutoCommit();
+			connection.setAutoCommit(false);
+
+            try {
+                statement = sqlGenerator.getRestoreStatementForPost(post, connection);
+                statement.executeUpdate();
+                connection.commit();
+                return true;
+			} catch (Exception e) {
+				logger.error("Caught exception whilst restoring post.", e);
+                return false;
+			} finally {
+				connection.setAutoCommit(oldAutoCommit);
+			}
 		} catch (Exception e) {
-			logger.error("Caught exception whilst recycling post.", e);
-			return false;
+			logger.error("Caught exception whilst restoring post.", e);
+            return false;
 		} finally {
 			if (statement != null) {
                 try {
@@ -889,11 +892,23 @@ public class PersistenceManager {
 
 		try {
 			connection = sakaiProxy.borrowConnection();
-			st = sqlGenerator.getDeleteAutosavedCopyStatement(postId, connection);
-			st.executeUpdate();
-			return true;
+			boolean oldAutoCommitFlag = connection.getAutoCommit();
+			connection.setAutoCommit(false);
+
+            try {
+                st = sqlGenerator.getDeleteAutosavedCopyStatement(postId, connection);
+                st.executeUpdate();
+                connection.commit();
+                return true;
+            } catch (Exception e) {
+                logger.error("Caught exception whilst deleting autosaved copy.", e);
+                return false;
+            } finally {
+                connection.setAutoCommit(oldAutoCommitFlag);
+            }
 		} catch (Exception e) {
-			logger.error("Caught exception whilst deleting autosaved copy.", e);
+            logger.error("Caught exception whilst deleting autosaved copy.", e);
+            return false;
 		} finally {
 			if (st != null) {
 				try {
@@ -904,8 +919,6 @@ public class PersistenceManager {
 
 			sakaiProxy.returnConnection(connection);
 		}
-
-		return false;
 	}
 
     public ClogGroup getClogGroup(String groupId) {
