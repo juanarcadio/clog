@@ -2,6 +2,7 @@
 .idea
 *.iml
 .project
+.settings
 *.swp
 tags
 target
